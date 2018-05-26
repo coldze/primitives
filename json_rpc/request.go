@@ -1,8 +1,11 @@
 package json_rpc
 
-type Request struct {
-	Version string      `json:"jsonrpc"`
-	ID      string      `json:"id,omitempty"`
-	Params  interface{} `json:"params,omitempty"`
-	Method  string      `json:"method"`
+type RequestBase struct {
+	Version string `json:"jsonrpc"`
+	ID      string `json:"id,omitempty"`
+	Method  string `json:"method"`
+}
+
+type RequestParams struct {
+	Params interface{} `json:"params,omitempty"`
 }

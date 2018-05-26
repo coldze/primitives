@@ -1,12 +1,11 @@
 package json_rpc
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io/ioutil"
-	"log"
 	"net/http"
-	"context"
 )
 
 const (
@@ -16,7 +15,7 @@ const (
 type RequestInfo struct {
 	Headers http.Header
 	Cookies []*http.Cookie
-	Data    []byte
+	Data    interface{}
 }
 
 type ResponseInfo struct {
@@ -25,8 +24,14 @@ type ResponseInfo struct {
 }
 
 type RequestHandler func(ctx context.Context, request *RequestInfo) (ResponseInfo, ServerError)
+type RequestParamsFactory func() interface{}
 
-func CreateJSONRpcHandler(methodHandlers map[string]RequestHandler) func(w http.ResponseWriter, r *http.Request) {
+type HandlingInfo struct {
+	Handle    RequestHandler
+	NewParams RequestParamsFactory
+}
+
+func CreateJSONRpcHandler(methodHandlers map[string]HandlingInfo) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Body != nil {
 			defer r.Body.Close()
@@ -65,8 +70,7 @@ func CreateJSONRpcHandler(methodHandlers map[string]RequestHandler) func(w http.
 		if err != nil {
 			ThrowError(0, 0, "Failed to read request body.", err)
 		}
-		log.Printf("Incoming data: %v", string(data))
-		incomingRequest := Request{}
+		incomingRequest := RequestBase{}
 		err = json.Unmarshal(data, &incomingRequest)
 		if err != nil {
 			ThrowError(0, 1, "Failed to parse request body.", err)
@@ -80,15 +84,18 @@ func CreateJSONRpcHandler(methodHandlers map[string]RequestHandler) func(w http.
 		if !ok {
 			ThrowError(0, 3, "Unsupported method: "+incomingRequest.Method, nil)
 		}
-		params, err := json.Marshal(incomingRequest.Params)
+		params := RequestParams{
+			Params: handler.NewParams(),
+		}
+		err = json.Unmarshal(data, &params)
 		if err != nil {
 			ThrowError(0, 3, "Failed to prepare arguments for handler,", err)
 		}
 		ctx := context.Background()
-		handlerResponse, responseErr := handler(ctx, &RequestInfo{
+		handlerResponse, responseErr := handler.Handle(ctx, &RequestInfo{
 			Headers: r.Header,
 			Cookies: r.Cookies(),
-			Data:    params,
+			Data:    params.Params,
 		})
 		if responseErr != nil {
 			panic(responseErr)
