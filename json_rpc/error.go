@@ -13,7 +13,7 @@ type Error struct {
 type ServerError interface {
 	GetCode() int64
 	GetMessage() string
-	GetData() error
+	GetData() *string
 	ToError() *Error
 }
 
@@ -31,15 +31,19 @@ func (e *serverErrorImpl) GetMessage() string {
 	return e.message
 }
 
-func (e *serverErrorImpl) GetData() error {
-	return e.data
+func (e *serverErrorImpl) GetData() *string {
+	if e.data == nil {
+		return nil
+	}
+	v := e.data.Error()
+	return &v
 }
 
 func (e *serverErrorImpl) ToError() *Error {
 	return &Error{
 		Code:    e.GetCode(),
 		Message: e.GetMessage(),
-		Data:    e.GetData().Error(),
+		Data:    e.GetData(),
 	}
 }
 
