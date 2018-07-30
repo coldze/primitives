@@ -25,13 +25,14 @@ type ResponseInfo struct {
 
 type RequestHandler func(ctx context.Context, request *RequestInfo) (ResponseInfo, ServerError)
 type RequestParamsFactory func() interface{}
+type ContextFactory func(request *RequestBase, rawHttpRequest *http.Request) (context.Context, ServerError)
 
 type HandlingInfo struct {
 	Handle    RequestHandler
 	NewParams RequestParamsFactory
 }
 
-func CreateJSONRpcHandler(methodHandlers map[string]HandlingInfo) func(w http.ResponseWriter, r *http.Request) {
+func CreateJSONRpcContextedHandler(methodHandlers map[string]HandlingInfo, composeContext ContextFactory) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Body != nil {
 			defer r.Body.Close()
@@ -80,6 +81,11 @@ func CreateJSONRpcHandler(methodHandlers map[string]HandlingInfo) func(w http.Re
 			ThrowError(0, 2, "Unsupported JSON RPC version", errors.New("Expected version = 2.0"))
 		}
 
+		ctx, composeErr := composeContext(&incomingRequest, r)
+		if composeErr != nil {
+			panic(composeErr)
+		}
+
 		handler, ok := methodHandlers[incomingRequest.Method]
 		if !ok {
 			ThrowError(0, 3, "Unsupported method: "+incomingRequest.Method, nil)
@@ -91,7 +97,6 @@ func CreateJSONRpcHandler(methodHandlers map[string]HandlingInfo) func(w http.Re
 		if err != nil {
 			ThrowError(0, 3, "Failed to prepare arguments for handler,", err)
 		}
-		ctx := context.Background()
 		handlerResponse, responseErr := handler.Handle(ctx, &RequestInfo{
 			Headers: r.Header,
 			Cookies: r.Cookies(),
@@ -116,4 +121,10 @@ func CreateJSONRpcHandler(methodHandlers map[string]HandlingInfo) func(w http.Re
 		}
 
 	}
+}
+
+func CreateJSONRpcHandler(methodHandlers map[string]HandlingInfo) func(w http.ResponseWriter, r *http.Request) {
+	return CreateJSONRpcContextedHandler(methodHandlers, func (request *RequestBase, r *http.Request) (context.Context, ServerError) {
+		return context.Background(), nil
+	})
 }
