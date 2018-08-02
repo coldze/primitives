@@ -124,7 +124,7 @@ func CreateJSONRpcContextedHandler(methodHandlers map[string]HandlingInfo, compo
 }
 
 func CreateJSONRpcHandler(methodHandlers map[string]HandlingInfo) func(w http.ResponseWriter, r *http.Request) {
-	return CreateJSONRpcContextedHandler(methodHandlers, func (request *RequestBase, r *http.Request) (context.Context, ServerError) {
+	return CreateJSONRpcContextedHandler(methodHandlers, func(request *RequestBase, r *http.Request) (context.Context, ServerError) {
 		return context.Background(), nil
 	})
 }

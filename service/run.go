@@ -6,6 +6,8 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/coldze/primitives/custom_error"
 )
 
 type MainFunc func(stopping <-chan struct{}) int
@@ -59,10 +61,35 @@ func runGracefully(timeout time.Duration) *gracefulShutdown {
 	}
 }
 
+func safeRunAppLogic(appLogic MainFunc, stopChan <-chan struct{}) (res int) {
+	defer func() {
+		r := recover()
+		if r == nil {
+			return
+		}
+		customErr, ok := r.(custom_error.CustomError)
+		if ok {
+			log.Printf("mainFunc failed. Error: %v", customErr)
+			res = 1
+			return
+		}
+		err, ok := r.(error)
+		if ok {
+			log.Printf("mainFunc failed. Error: %v", err)
+			res = 1
+			return
+		}
+		log.Printf("mainFunc failed. Unknown error: %+v. Type: %T", r, r)
+		res = 1
+	}()
+	return appLogic(stopChan)
+}
+
 func Run(timeout time.Duration, appLogic MainFunc) {
+
 	graceful := runGracefully(timeout)
 	go func() {
-		graceful.ShutdownComplete <- appLogic(graceful.WaitForShutdown)
+		graceful.ShutdownComplete <- safeRunAppLogic(appLogic, graceful.WaitForShutdown)
 	}()
 	exitCode := <-graceful.ReturnCode
 	log.Printf("Exiting application. Code: %+v", exitCode)
