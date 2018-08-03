@@ -9,3 +9,8 @@ type RequestBase struct {
 type RequestParams struct {
 	Params interface{} `json:"params,omitempty"`
 }
+
+type UntypedRequest struct {
+	RequestBase
+	RequestParams
+}

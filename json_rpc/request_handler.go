@@ -44,7 +44,7 @@ func CreateJSONRpcContextedHandler(methodHandlers map[string]HandlingInfo, compo
 				w.Write(response)
 				return
 			}
-			var rpcError Response
+			var rpcError UntypedResponse
 			rpcError.Version = json_rpc_version
 			serverError, ok := v.(ServerError)
 			if !ok {
@@ -111,10 +111,14 @@ func CreateJSONRpcContextedHandler(methodHandlers map[string]HandlingInfo, compo
 			}
 		}
 
-		response, err = json.Marshal(Response{
-			Version: json_rpc_version,
-			ID:      incomingRequest.ID,
-			Result:  handlerResponse.Data,
+		response, err = json.Marshal(UntypedResponse{
+			ResponseBase: ResponseBase{
+				Version: json_rpc_version,
+				ID:      incomingRequest.ID,
+			},
+			ResponseResult: ResponseResult{
+				Result: handlerResponse.Data,
+			},
 		})
 		if err != nil {
 			ThrowError(0, 4, "Failed to marshal response.", err)
