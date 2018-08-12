@@ -6,13 +6,15 @@ import (
 )
 
 var (
-	version string
-	name    string
+	version     string
+	name        string
+	environment string
 )
 
 const (
-	unversioned_value = "unversioned"
-	path_separator    = "/"
+	unspecified_version = "unversioned"
+	unspecified_env     = "unspecified"
+	path_separator      = "/"
 )
 
 func GetServiceName() string {
@@ -23,11 +25,22 @@ func GetVersion() string {
 	return version
 }
 
+func GetEnvironment() string {
+	return environment
+}
+
 func initVersion() {
 	if len(version) > 0 {
 		return
 	}
-	version = unversioned_value
+	version = unspecified_version
+}
+
+func initEnvironment() {
+	if len(environment) > 0 {
+		return
+	}
+	environment = unspecified_env
 }
 
 func initName() {
@@ -45,4 +58,5 @@ func initName() {
 func init() {
 	initVersion()
 	initName()
+	initEnvironment()
 }
