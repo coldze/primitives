@@ -8,8 +8,8 @@ import (
 
 	"fmt"
 	"github.com/coldze/primitives/custom_error"
-	"runtime/debug"
 	"github.com/google/uuid"
+	"runtime/debug"
 )
 
 type ResponseResultFactory func() interface{}
@@ -28,7 +28,7 @@ type Client interface {
 type client struct {
 	httpClient *http.Client
 	rpcVersion string
-	getID IDFactory
+	getID      IDFactory
 }
 
 func (c *client) Call(url string, method string, args RPCArguments, expectedResult ResponseResultFactory) (response *UntypedResponse, resError custom_error.CustomError) {
@@ -72,9 +72,9 @@ func (c *client) Call(url string, method string, args RPCArguments, expectedResu
 	if err != nil {
 		return nil, errorBuilder.MakeErrorf("Failed to create http-request. Error: %v", err)
 	}
-	//if args.Headers != nil {
+	if args.Headers != nil {
 		req.Header = args.Headers
-	//}
+	}
 	req.Header.Set("Content-Type", "application/json")
 	for i := range args.Cookies {
 		req.AddCookie(args.Cookies[i])
@@ -112,6 +112,6 @@ func NewClient(httpClient *http.Client) Client {
 	return &client{
 		httpClient: httpClient,
 		rpcVersion: json_rpc_version,
-		getID: guidID,
+		getID:      guidID,
 	}
 }
