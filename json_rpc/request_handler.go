@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io/ioutil"
 	"net/http"
+	"runtime/debug"
 )
 
 const (
@@ -32,6 +33,11 @@ type HandlingInfo struct {
 	NewParams RequestParamsFactory
 }
 
+type UnknownErrorData struct {
+	CallStack     string      `json:"call_stack"`
+	OriginalError interface{} `json:"original_error"`
+}
+
 func CreateJSONRpcContextedHandler(methodHandlers map[string]HandlingInfo, composeContext ContextFactory) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Body != nil {
@@ -51,7 +57,10 @@ func CreateJSONRpcContextedHandler(methodHandlers map[string]HandlingInfo, compo
 				rpcError.Err = &Error{
 					Code:    0,
 					Message: "Unknow error",
-					Data:    v,
+					Data: UnknownErrorData{
+						CallStack:     string(debug.Stack()),
+						OriginalError: v,
+					},
 				}
 			} else {
 				rpcError.Err = serverError.ToError()
