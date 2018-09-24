@@ -27,6 +27,7 @@ type ResponseInfo struct {
 type RequestHandler func(ctx context.Context, request *RequestInfo) (ResponseInfo, ServerError)
 type RequestParamsFactory func() interface{}
 type ContextFactory func(request *RequestBase, rawHttpRequest *http.Request) (context.Context, ServerError)
+type HeadersFromContext func(ctx context.Context) http.Header
 
 type HandlingInfo struct {
 	Handle    RequestHandler
@@ -38,7 +39,15 @@ type UnknownErrorData struct {
 	OriginalError interface{} `json:"original_error"`
 }
 
-func CreateJSONRpcContextedHandler(methodHandlers map[string]HandlingInfo, composeContext ContextFactory) func(w http.ResponseWriter, r *http.Request) {
+func applyHeaders(w http.ResponseWriter, headers http.Header) {
+	for k, hs := range headers {
+		for i := range hs {
+			w.Header().Add(k, hs[i])
+		}
+	}
+}
+
+func CreateJSONRpcContextedHandler(methodHandlers map[string]HandlingInfo, composeContext ContextFactory, getHeaders HeadersFromContext) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Body != nil {
 			defer r.Body.Close()
@@ -91,6 +100,9 @@ func CreateJSONRpcContextedHandler(methodHandlers map[string]HandlingInfo, compo
 		}
 
 		ctx, composeErr := composeContext(&incomingRequest, r)
+		if ctx != nil {
+			applyHeaders(w, getHeaders(ctx))
+		}
 		if composeErr != nil {
 			panic(composeErr)
 		}
@@ -114,11 +126,7 @@ func CreateJSONRpcContextedHandler(methodHandlers map[string]HandlingInfo, compo
 		if responseErr != nil {
 			panic(responseErr)
 		}
-		for k, hs := range handlerResponse.Headers {
-			for i := range hs {
-				w.Header().Add(k, hs[i])
-			}
-		}
+		applyHeaders(w, handlerResponse.Headers)
 
 		response, err = json.Marshal(UntypedResponse{
 			ResponseBase: ResponseBase{
@@ -136,8 +144,14 @@ func CreateJSONRpcContextedHandler(methodHandlers map[string]HandlingInfo, compo
 	}
 }
 
+func dummyContextFactory(request *RequestBase, r *http.Request) (context.Context, ServerError) {
+	return context.Background(), nil
+}
+
+func dummyContextExpert(ctx context.Context) http.Header {
+	return nil
+}
+
 func CreateJSONRpcHandler(methodHandlers map[string]HandlingInfo) func(w http.ResponseWriter, r *http.Request) {
-	return CreateJSONRpcContextedHandler(methodHandlers, func(request *RequestBase, r *http.Request) (context.Context, ServerError) {
-		return context.Background(), nil
-	})
+	return CreateJSONRpcContextedHandler(methodHandlers, dummyContextFactory, dummyContextExpert)
 }
