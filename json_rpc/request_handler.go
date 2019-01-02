@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"runtime/debug"
 )
@@ -87,7 +86,6 @@ func CreateJSONRpcContextedHandler(methodHandlers map[string]HandlingInfo, compo
 		}()
 
 		data, err := ioutil.ReadAll(r.Body)
-		log.Printf("DATA: %+v", string(data))
 		if err != nil {
 			ThrowError(0, 0, "Failed to read request body.", err)
 		}
@@ -120,7 +118,6 @@ func CreateJSONRpcContextedHandler(methodHandlers map[string]HandlingInfo, compo
 		if err != nil {
 			ThrowError(0, 3, "Failed to prepare arguments for handler,", err)
 		}
-		log.Printf("Params: %+v", params.Params)
 		handlerResponse, responseErr := handler.Handle(ctx, &RequestInfo{
 			Headers: r.Header,
 			Cookies: r.Cookies(),
