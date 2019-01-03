@@ -26,12 +26,13 @@ type ResponseInfo struct {
 
 type RequestHandler func(ctx context.Context, request *RequestInfo) (ResponseInfo, ServerError)
 type RequestParamsFactory func() interface{}
-type ContextFactory func(request *RequestBase, rawHttpRequest *http.Request) (context.Context, ServerError)
 type HeadersFromContext func(ctx context.Context) http.Header
 
 type HandlingInfo struct {
-	Handle    RequestHandler
-	NewParams RequestParamsFactory
+	Handle         RequestHandler
+	NewParams      RequestParamsFactory
+	ComposeContext ContextFactory
+	GetHeaders     HeadersFromContext
 }
 
 type UnknownErrorData struct {
@@ -47,7 +48,26 @@ func applyHeaders(w http.ResponseWriter, headers http.Header) {
 	}
 }
 
-func CreateJSONRpcContextedHandler(methodHandlers map[string]HandlingInfo, composeContext ContextFactory, getHeaders HeadersFromContext) func(w http.ResponseWriter, r *http.Request) {
+func dummyContextFactory(request *RequestBase, r *http.Request) (context.Context, ServerError) {
+	return context.Background(), nil
+}
+
+func dummyContextExpert(ctx context.Context) http.Header {
+	return nil
+}
+
+func CreateJSONRpcHandler(handlers map[string]HandlingInfo) func(w http.ResponseWriter, r *http.Request) {
+	methodHandlers := map[string]HandlingInfo{}
+	for k, v := range handlers {
+		updated := v
+		if updated.ComposeContext == nil {
+			updated.ComposeContext = dummyContextFactory
+		}
+		if updated.GetHeaders == nil {
+			updated.GetHeaders = dummyContextExpert
+		}
+		methodHandlers[k] = updated
+	}
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Body != nil {
 			defer r.Body.Close()
@@ -99,18 +119,19 @@ func CreateJSONRpcContextedHandler(methodHandlers map[string]HandlingInfo, compo
 			ThrowError(0, 2, "Unsupported JSON RPC version", errors.New("Expected version = 2.0"))
 		}
 
-		ctx, composeErr := composeContext(&incomingRequest, r)
+		handler, ok := methodHandlers[incomingRequest.Method]
+		if !ok {
+			ThrowError(0, 3, "Unsupported method: "+incomingRequest.Method, nil)
+		}
+
+		ctx, composeErr := handler.ComposeContext(&incomingRequest, r)
 		if ctx != nil {
-			applyHeaders(w, getHeaders(ctx))
+			applyHeaders(w, handler.GetHeaders(ctx))
 		}
 		if composeErr != nil {
 			panic(composeErr)
 		}
 
-		handler, ok := methodHandlers[incomingRequest.Method]
-		if !ok {
-			ThrowError(0, 3, "Unsupported method: "+incomingRequest.Method, nil)
-		}
 		params := RequestParams{
 			Params: handler.NewParams(),
 		}
@@ -142,16 +163,4 @@ func CreateJSONRpcContextedHandler(methodHandlers map[string]HandlingInfo, compo
 		}
 
 	}
-}
-
-func dummyContextFactory(request *RequestBase, r *http.Request) (context.Context, ServerError) {
-	return context.Background(), nil
-}
-
-func dummyContextExpert(ctx context.Context) http.Header {
-	return nil
-}
-
-func CreateJSONRpcHandler(methodHandlers map[string]HandlingInfo) func(w http.ResponseWriter, r *http.Request) {
-	return CreateJSONRpcContextedHandler(methodHandlers, dummyContextFactory, dummyContextExpert)
 }
