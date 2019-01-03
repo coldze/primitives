@@ -24,6 +24,9 @@ func SetLogger(ctx context.Context, logger Logger) context.Context {
 }
 
 func GetLogger(ctx context.Context) Logger {
+	if ctx == nil {
+		return defaultLogger
+	}
 	v := ctx.Value(ctxLoggerKey)
 	if v == nil {
 		return defaultLogger
