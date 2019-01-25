@@ -10,6 +10,8 @@ type ContextBuilder func(ctx context.Context, request *RequestBase, rawHttpReque
 
 func NewCompositeContextFactory(builders []ContextBuilder) ContextFactory {
 	return func(request *RequestBase, rawHttpRequest *http.Request) (ctx context.Context, err ServerError) {
+		ctx = context.Background()
+
 		for i := range builders {
 			ctx, err = builders[i](ctx, request, rawHttpRequest)
 			if err != nil {
