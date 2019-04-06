@@ -13,7 +13,7 @@ var defaultLogger Logger
 
 func SetLogger(ctx context.Context, logger Logger) context.Context {
 	if ctx == nil {
-		return context.WithValue(context.Background(),ctxLoggerKey, logger)
+		return context.WithValue(context.Background(), ctxLoggerKey, logger)
 	}
 	return context.WithValue(ctx, ctxLoggerKey, logger)
 }

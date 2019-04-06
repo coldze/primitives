@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"runtime/debug"
 )
@@ -24,7 +25,7 @@ type ResponseInfo struct {
 	Data    interface{}
 }
 
-type RequestHandler func(ctx context.Context, request *RequestInfo) (ResponseInfo, ServerError)
+type RequestHandler func(ctx context.Context, request *RequestInfo) (*ResponseInfo, ServerError)
 type RequestParamsFactory func() interface{}
 type HeadersFromContext func(ctx context.Context) http.Header
 
@@ -109,34 +110,48 @@ func CreateJSONRpcHandler(handlers map[string]HandlingInfo) func(w http.Response
 		if err != nil {
 			ThrowError(0, 0, "Failed to read request body.", err)
 		}
+		log.Printf(" IN 1")
 		incomingRequest := RequestBase{}
 		err = json.Unmarshal(data, &incomingRequest)
+		log.Printf(" IN 2. Request: %+v. URI: %+v. Body: %+v", incomingRequest, r.RequestURI, string(data))
 		if err != nil {
+			log.Printf(" IN 3")
 			ThrowError(0, 1, "Failed to parse request body.", err)
 		}
+		log.Printf(" IN 4")
 
 		if incomingRequest.Version != json_rpc_version {
+			log.Printf(" IN 5")
 			ThrowError(0, 2, "Unsupported JSON RPC version", errors.New("Expected version = 2.0"))
 		}
 
+		log.Printf(" IN 6")
 		handler, ok := methodHandlers[incomingRequest.Method]
 		if !ok {
+			log.Printf(" IN 7")
 			ThrowError(0, 3, "Unsupported method: "+incomingRequest.Method, nil)
 		}
 
+		log.Printf(" IN 8")
 		ctx, composeErr := handler.ComposeContext(&incomingRequest, r)
 		if ctx != nil {
+			log.Printf(" IN 9")
 			applyHeaders(w, handler.GetHeaders(ctx))
 		}
+		log.Printf(" IN 10")
 		if composeErr != nil {
+			log.Printf(" IN 11")
 			panic(composeErr)
 		}
 
+		log.Printf(" IN 12")
 		params := RequestParams{
 			Params: handler.NewParams(),
 		}
+		log.Printf(" IN 13")
 		err = json.Unmarshal(data, &params)
 		if err != nil {
+			log.Printf(" IN 14")
 			ThrowError(0, 3, "Failed to prepare arguments for handler,", err)
 		}
 		handlerResponse, responseErr := handler.Handle(ctx, &RequestInfo{
@@ -144,9 +159,12 @@ func CreateJSONRpcHandler(handlers map[string]HandlingInfo) func(w http.Response
 			Cookies: r.Cookies(),
 			Data:    params.Params,
 		})
+		log.Printf(" IN 15")
 		if responseErr != nil {
+			log.Printf(" IN 16")
 			panic(responseErr)
 		}
+		log.Printf(" IN 17")
 		applyHeaders(w, handlerResponse.Headers)
 
 		response, err = json.Marshal(UntypedResponse{
@@ -158,9 +176,12 @@ func CreateJSONRpcHandler(handlers map[string]HandlingInfo) func(w http.Response
 				Result: handlerResponse.Data,
 			},
 		})
+		log.Printf(" IN 18. Response: %+v", string(response))
 		if err != nil {
+			log.Printf(" IN 19")
 			ThrowError(0, 4, "Failed to marshal response.", err)
 		}
+		log.Printf(" IN 20")
 
 	}
 }

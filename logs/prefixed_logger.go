@@ -1,7 +1,7 @@
 package logs
 
 type prefixedLogger struct {
-	base Logger
+	base   Logger
 	prefix string
 }
 
@@ -27,7 +27,7 @@ func (l *prefixedLogger) Fatalf(format string, args ...interface{}) {
 
 func NewPrefixedLogger(base Logger, prefix string) Logger {
 	return &prefixedLogger{
-		base: base,
+		base:   base,
 		prefix: prefix,
 	}
 }

@@ -8,7 +8,7 @@ import (
 
 type Loadable struct {
 	DecodeTo func() interface{}
-	PutTo func(interface{}) custom_error.CustomError
+	PutTo    func(interface{}) custom_error.CustomError
 }
 
 func (l *Loadable) UnmarshalJSON(data []byte) error {
