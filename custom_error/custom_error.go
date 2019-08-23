@@ -5,6 +5,8 @@ import (
 	"runtime"
 )
 
+type ErrorType int
+
 type ErrorDetails struct {
 	Line int
 	File string
@@ -16,6 +18,7 @@ type CustomError interface {
 	GetError() error
 	GetSubError() CustomError
 	GetDetails() ErrorDetails
+	GetType() ErrorType
 }
 
 type customErrorImpl struct {
@@ -36,6 +39,10 @@ func (c *customErrorImpl) GetDetails() ErrorDetails {
 	return c.details
 }
 
+func (c *customErrorImpl) GetType() ErrorType {
+	return ErrorType(0)
+}
+
 func (c *customErrorImpl) String() string {
 	thisErr := fmt.Sprintf("%v:%v\n\tError: %v\n\n", c.details.File, c.details.Line, c.err)
 	if c.subError != nil {
@@ -48,7 +55,16 @@ func (c *customErrorImpl) Error() string {
 	return c.String()
 }
 
-func newError(subError CustomError, err error, skip int) CustomError {
+type typedCustomErrorImpl struct {
+	customErrorImpl
+	errType ErrorType
+}
+
+func (c *typedCustomErrorImpl) GetType() ErrorType {
+	return c.errType
+}
+
+func newError(subError CustomError, err error, skip int) *customErrorImpl {
 	details := ErrorDetails{}
 	_, details.File, details.Line, _ = runtime.Caller(skip)
 	return &customErrorImpl{
@@ -58,8 +74,15 @@ func newError(subError CustomError, err error, skip int) CustomError {
 	}
 }
 
+func newTypedError(errType ErrorType, subError CustomError, err error, skip int) CustomError {
+	return &typedCustomErrorImpl{
+		customErrorImpl: *newError(subError, err, skip),
+		errType:  errType,
+	}
+}
+
 func NewError(subError CustomError, err error) CustomError {
-	return newError(subError, err, 2)
+	return newTypedError(subError.GetType(), subError, err, 2)
 }
 
 func MakeError(err error) CustomError {
@@ -71,5 +94,21 @@ func MakeErrorf(format string, args ...interface{}) CustomError {
 }
 
 func NewErrorf(subError CustomError, format string, args ...interface{}) CustomError {
-	return newError(subError, fmt.Errorf(format, args...), 2)
+	return newTypedError(subError.GetType(), subError, fmt.Errorf(format, args...), 2)
+}
+
+func NewTypedError(errType ErrorType, subError CustomError, err error) CustomError {
+	return newTypedError(errType, subError, err, 2)
+}
+
+func MakeTypedError(errType ErrorType, err error) CustomError {
+	return newTypedError(errType, nil, err, 2)
+}
+
+func MakeTypedErrorf(errType ErrorType, format string, args ...interface{}) CustomError {
+	return newTypedError(errType, nil, fmt.Errorf(format, args...), 2)
+}
+
+func NewTypedErrorf(errType ErrorType, subError CustomError, format string, args ...interface{}) CustomError {
+	return newTypedError(errType, subError, fmt.Errorf(format, args...), 2)
 }

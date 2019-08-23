@@ -11,7 +11,7 @@ func (p *prefixedCustomError) MakeErrorf(format string, args ...interface{}) Cus
 }
 
 func (p *prefixedCustomError) NewErrorf(subError CustomError, format string, args ...interface{}) CustomError {
-	return newError(subError, fmt.Errorf(p.prefix+format, args...), 2)
+	return newTypedError(subError.GetType(), subError, fmt.Errorf(p.prefix+format, args...), 2)
 }
 
 func NewPrefixedErrorBuilder(prefix string) ErrorBuilder {
