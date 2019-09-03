@@ -82,7 +82,7 @@ func newTypedError(errType ErrorType, subError CustomError, err error, skip int)
 }
 
 func NewError(subError CustomError, err error) CustomError {
-	return newTypedError(subError.GetType(), subError, err, 2)
+	return newTypedError(subError.GetType(), subError, err, 3)
 }
 
 func MakeError(err error) CustomError {
@@ -94,21 +94,21 @@ func MakeErrorf(format string, args ...interface{}) CustomError {
 }
 
 func NewErrorf(subError CustomError, format string, args ...interface{}) CustomError {
-	return newTypedError(subError.GetType(), subError, fmt.Errorf(format, args...), 2)
+	return newTypedError(subError.GetType(), subError, fmt.Errorf(format, args...), 3)
 }
 
 func NewTypedError(errType ErrorType, subError CustomError, err error) CustomError {
-	return newTypedError(errType, subError, err, 2)
+	return newTypedError(errType, subError, err, 3)
 }
 
 func MakeTypedError(errType ErrorType, err error) CustomError {
-	return newTypedError(errType, nil, err, 2)
+	return newTypedError(errType, nil, err, 3)
 }
 
 func MakeTypedErrorf(errType ErrorType, format string, args ...interface{}) CustomError {
-	return newTypedError(errType, nil, fmt.Errorf(format, args...), 2)
+	return newTypedError(errType, nil, fmt.Errorf(format, args...), 3)
 }
 
 func NewTypedErrorf(errType ErrorType, subError CustomError, format string, args ...interface{}) CustomError {
-	return newTypedError(errType, subError, fmt.Errorf(format, args...), 2)
+	return newTypedError(errType, subError, fmt.Errorf(format, args...), 3)
 }
