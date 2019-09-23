@@ -87,6 +87,9 @@ func (c *client) Call(url string, method string, args RPCArguments, expectedResu
 	if err != nil {
 		return nil, custom_error.MakeErrorf("Failed to send request. Error: %v", err)
 	}
+	if resp.StatusCode >= 400 {
+		return nil, custom_error.MakeErrorf("%v: %v", resp.StatusCode, resp.Status)
+	}
 	respData, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nil, custom_error.MakeErrorf("Failed to read response. Error: %v", err)
