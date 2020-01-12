@@ -77,7 +77,7 @@ func newError(subError CustomError, err error, skip int) *customErrorImpl {
 func newTypedError(errType ErrorType, subError CustomError, err error, skip int) CustomError {
 	return &typedCustomErrorImpl{
 		customErrorImpl: *newError(subError, err, skip),
-		errType:  errType,
+		errType:         errType,
 	}
 }
 

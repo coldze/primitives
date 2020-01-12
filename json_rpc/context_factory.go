@@ -5,13 +5,12 @@ import (
 	"net/http"
 )
 
-type ContextFactory func(request *RequestBase, rawHttpRequest *http.Request) (context.Context, ServerError)
+type InitialContextFactory func() context.Context
 type ContextBuilder func(ctx context.Context, request *RequestBase, rawHttpRequest *http.Request) (context.Context, ServerError)
 
-func NewCompositeContextFactory(builders []ContextBuilder) ContextFactory {
-	return func(request *RequestBase, rawHttpRequest *http.Request) (ctx context.Context, err ServerError) {
-		ctx = context.Background()
-
+func NewCompositeContextBuilder(builders []ContextBuilder) ContextBuilder {
+	return func(initialCtx context.Context, request *RequestBase, rawHttpRequest *http.Request) (ctx context.Context, err ServerError) {
+		ctx = initialCtx
 		for i := range builders {
 			ctx, err = builders[i](ctx, request, rawHttpRequest)
 			if err != nil {

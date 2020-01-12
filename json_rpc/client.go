@@ -114,7 +114,7 @@ func guidID() string {
 func NewClient(httpClient *http.Client) Client {
 	return &client{
 		httpClient: httpClient,
-		rpcVersion: json_rpc_version,
+		rpcVersion: JSON_RPC_VERSION,
 		getID:      guidID,
 	}
 }
