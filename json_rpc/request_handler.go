@@ -118,7 +118,6 @@ func NewJsonRPCHandle(handlers map[string]HandlingInfo, getDecoder func(data io.
 			Data:    params.Params,
 		})
 		if responseErr != nil {
-			errData, _ := json.MarshalIndent(responseErr, "", "  ")
 			panic(responseErr)
 		}
 		applyHeaders(resHeaders, handlerResponse.Headers)
