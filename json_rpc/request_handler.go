@@ -60,9 +60,9 @@ func dummyContextExpert(ctx context.Context) http.Header {
 	return nil
 }
 
-type RawRequestHandler func(r *http.Request) (*ResponseInfo, string)
+type RawRequestHandler func(ctx context.Context, r *http.Request) (*ResponseInfo, string)
 
-func NewJsonRPCHandle(newContext InitialContextFactory, handlers map[string]HandlingInfo, getDecoder func(data io.Reader) *json.Decoder) RawRequestHandler {
+func NewJsonRPCHandle(handlers map[string]HandlingInfo, getDecoder func(data io.Reader) *json.Decoder) RawRequestHandler {
 	methodHandlers := map[string]HandlingInfo{}
 	for k, v := range handlers {
 		updated := v
@@ -74,7 +74,7 @@ func NewJsonRPCHandle(newContext InitialContextFactory, handlers map[string]Hand
 		}
 		methodHandlers[k] = updated
 	}
-	return func(r *http.Request) (*ResponseInfo, string) {
+	return func(srcCtx context.Context, r *http.Request) (*ResponseInfo, string) {
 		data, err := ioutil.ReadAll(r.Body)
 		if err != nil {
 			ThrowError(0, 0, "Failed to read request body.", err)
@@ -96,8 +96,7 @@ func NewJsonRPCHandle(newContext InitialContextFactory, handlers map[string]Hand
 		}
 
 		resHeaders := http.Header{}
-		ctx := newContext()
-		ctx, composeErr := handler.ComposeContext(ctx, &incomingRequest, r)
+		ctx, composeErr := handler.ComposeContext(srcCtx, &incomingRequest, r)
 		if ctx != nil {
 			applyHeaders(resHeaders, handler.GetHeaders(ctx))
 		}
@@ -119,6 +118,7 @@ func NewJsonRPCHandle(newContext InitialContextFactory, handlers map[string]Hand
 			Data:    params.Params,
 		})
 		if responseErr != nil {
+			errData, _ := json.MarshalIndent(responseErr, "", "  ")
 			panic(responseErr)
 		}
 		applyHeaders(resHeaders, handlerResponse.Headers)
@@ -143,11 +143,10 @@ func NewRawHandle(newContext InitialContextFactory, methodHandler HandlingInfo, 
 		handler.GetHeaders = dummyContextExpert
 	}
 
-	return func(r *http.Request) (*ResponseInfo, string) {
+	return func(srcCtx context.Context, r *http.Request) (*ResponseInfo, string) {
 
 		resHeaders := http.Header{}
-		ctx := newContext()
-		ctx, incomingRequest, params, cErr := parse(ctx, r)
+		ctx, incomingRequest, params, cErr := parse(srcCtx, r)
 		if cErr != nil {
 			ThrowError(0, 1, "Failed to parse request.", cErr)
 		}
@@ -173,8 +172,11 @@ func NewRawHandle(newContext InitialContextFactory, methodHandler HandlingInfo, 
 	}
 }
 
-func CreateRawHandler(handle RawRequestHandler) func(w http.ResponseWriter, r *http.Request) {
+func CreateRawHandler(newContext InitialContextFactory, handle RawRequestHandler, defaultHeaders HeadersFromContext) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := newContext()
+		headers := defaultHeaders(ctx)
+		applyHeaders(w.Header(), headers)
 		if r.Body != nil {
 			defer r.Body.Close()
 		}
@@ -212,7 +214,7 @@ func CreateRawHandler(handle RawRequestHandler) func(w http.ResponseWriter, r *h
 			w.Write([]byte("Internal Server Error"))
 		}()
 
-		handlerResponse, rid := handle(r)
+		handlerResponse, rid := handle(ctx, r)
 
 		applyHeaders(w.Header(), handlerResponse.Headers)
 
@@ -231,12 +233,12 @@ func CreateRawHandler(handle RawRequestHandler) func(w http.ResponseWriter, r *h
 	}
 }
 
-func CreateJSONRpcHandlerCustomUnmarshal(handlers map[string]HandlingInfo, getDecoder func(data io.Reader) *json.Decoder) func(w http.ResponseWriter, r *http.Request) {
+func CreateJSONRpcHandlerCustomUnmarshal(handlers map[string]HandlingInfo, getDecoder func(data io.Reader) *json.Decoder, defaultHeaders HeadersFromContext) func(w http.ResponseWriter, r *http.Request) {
 	initialCtxFactory := func() context.Context {
 		return context.Background()
 	}
-	handle := NewJsonRPCHandle(initialCtxFactory, handlers, getDecoder)
-	return CreateRawHandler(handle)
+	handle := NewJsonRPCHandle(handlers, getDecoder)
+	return CreateRawHandler(initialCtxFactory, handle, defaultHeaders)
 }
 
 func defaultDecoder(data io.Reader) *json.Decoder {
@@ -244,5 +246,11 @@ func defaultDecoder(data io.Reader) *json.Decoder {
 }
 
 func CreateJSONRpcHandler(handlers map[string]HandlingInfo) func(w http.ResponseWriter, r *http.Request) {
-	return CreateJSONRpcHandlerCustomUnmarshal(handlers, defaultDecoder)
+	return CreateJSONRpcHandlerCustomUnmarshal(handlers, defaultDecoder, func(ctx context.Context) http.Header {
+		return http.Header{}
+	})
+}
+
+func CreateJSONRpcHandlerWithDefaultHeaders(handlers map[string]HandlingInfo, defaultHeaders HeadersFromContext) func(w http.ResponseWriter, r *http.Request) {
+	return CreateJSONRpcHandlerCustomUnmarshal(handlers, defaultDecoder, defaultHeaders)
 }
