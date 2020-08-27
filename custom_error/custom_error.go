@@ -15,6 +15,7 @@ type ErrorDetails struct {
 type CustomError interface {
 	fmt.Stringer
 	error
+	Unwrap() error
 	GetError() error
 	GetSubError() CustomError
 	GetDetails() ErrorDetails
@@ -29,6 +30,13 @@ type customErrorImpl struct {
 
 func (c *customErrorImpl) GetError() error {
 	return c.err
+}
+
+func (c *customErrorImpl) Unwrap() error {
+	if c.subError == nil {
+		return c.err
+	}
+	return c.subError
 }
 
 func (c *customErrorImpl) GetSubError() CustomError {
@@ -81,10 +89,6 @@ func newTypedError(errType ErrorType, subError CustomError, err error, skip int)
 	}
 }
 
-func NewError(subError CustomError, err error) CustomError {
-	return newTypedError(subError.GetType(), subError, err, 3)
-}
-
 func MakeError(err error) CustomError {
 	return newError(nil, err, 2)
 }
@@ -93,7 +97,11 @@ func MakeErrorf(format string, args ...interface{}) CustomError {
 	return newError(nil, fmt.Errorf(format, args...), 2)
 }
 
-func NewErrorf(subError CustomError, format string, args ...interface{}) CustomError {
+func WrapError(subError CustomError, err error) CustomError {
+	return newTypedError(subError.GetType(), subError, err, 3)
+}
+
+func WrapErrorf(subError CustomError, format string, args ...interface{}) CustomError {
 	return newTypedError(subError.GetType(), subError, fmt.Errorf(format, args...), 3)
 }
 

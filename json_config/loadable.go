@@ -21,7 +21,7 @@ func (l *Loadable) UnmarshalJSON(data []byte) error {
 	if ok {
 		cErr := v.Validate()
 		if cErr != nil {
-			return custom_error.NewErrorf(cErr, "Config validation failed.")
+			return custom_error.WrapErrorf(cErr, "Config validation failed.")
 		}
 	}
 	l.PutTo(cfg)

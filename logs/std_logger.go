@@ -3,11 +3,11 @@ package logs
 import "log"
 
 const (
-	log_debug_prefix   = "[DEBUG] "
+	log_debug_prefix   = "\033[1;37m[DEBUG]\033[0m "
 	log_info_prefix    = "[INFO] "
-	log_warning_prefix = "[WARNING] "
-	log_error_prefix   = "[ERROR] "
-	log_fatal_prefix   = "[FATAL] "
+	log_warning_prefix = "\033[1;33m[WARNING]\033[0m "
+	log_error_prefix   = "\033[1;31m[ERROR]\033[0m "
+	log_fatal_prefix   = "\033[1;34m[FATAL]\033[0m "
 )
 
 type stdLogger struct {

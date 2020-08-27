@@ -11,6 +11,7 @@ import (
 	"runtime/debug"
 
 	"github.com/coldze/primitives/custom_error"
+	"github.com/coldze/primitives/logs"
 )
 
 const (
@@ -162,23 +163,23 @@ func NewRawHandle(methodHandler HandlingInfo, parse RawRequestParser) RawRequest
 
 func CreateRawHandler(newContext InitialContextFactory, handle RawRequestHandler, defaultHeaders HeadersFromContext) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ctx := newContext()
+		ctx, cancel := newContext(r.Context())
+		defer cancel()
 		headers := defaultHeaders(ctx)
 		applyHeaders(w.Header(), headers)
 		if r.Body != nil {
 			defer r.Body.Close()
 		}
-		var response []byte
+		var rid string
 		defer func() {
 			v := recover()
 			if v == nil {
-				w.Write(response)
 				return
 			}
-			debug.PrintStack()
 			var rpcError UntypedResponse
 			rpcError.Version = JSON_RPC_VERSION
 			serverError, ok := v.(ServerError)
+			httpStatus := http.StatusInternalServerError
 			if !ok {
 				rpcError.Err = &Error{
 					Code:    0,
@@ -190,33 +191,39 @@ func CreateRawHandler(newContext InitialContextFactory, handle RawRequestHandler
 				}
 			} else {
 				rpcError.Err = serverError.ToError()
+				httpStatus = serverError.GetStatus()
 			}
 
-			dataToSend, err := json.Marshal(rpcError)
+			w.WriteHeader(httpStatus)
+			err := json.NewEncoder(w).Encode(rpcError)
 			if err == nil {
-				w.Write(dataToSend)
 				return
 			}
 			w.Header().Set("Content-Type", "text/plain; charset=UTF-8")
 			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte("Internal Server Error"))
+			_, wErr := w.Write([]byte("Internal Server Error"))
+			if wErr != nil {
+				logs.GetLogger(ctx).Fatalf("[Request-ID: %v] Failed to write response: %w", rid, wErr)
+			}
 		}()
 
-		handlerResponse, rid := handle(ctx, r)
+		result, rid := handle(ctx, r)
+		if result == nil {
+			ThrowError(0, 5, "Empty response from handler.", errors.New("Empty response from handler"))
+		}
 
-		applyHeaders(w.Header(), handlerResponse.Headers)
-
-		response, err := json.Marshal(UntypedResponse{
+		applyHeaders(w.Header(), result.Headers)
+		err := json.NewEncoder(w).Encode(UntypedResponse{
 			ResponseBase: ResponseBase{
 				Version: JSON_RPC_VERSION,
 				ID:      rid,
 			},
 			ResponseResult: ResponseResult{
-				Result: handlerResponse.Data,
+				Result: result.Data,
 			},
 		})
 		if err != nil {
-			ThrowError(0, 4, "Failed to marshal response.", err)
+			ThrowError(0, 4, "Failed to write response.", err)
 		}
 	}
 }
@@ -234,11 +241,11 @@ type RpcHandlers interface {
 	GetHandler(name string) (HandlingInfo, bool)
 	GetHeaders(ctx context.Context) http.Header
 	GetDecoder(data io.Reader) *json.Decoder
-	NewContext() context.Context
+	NewContext(ctx context.Context) (context.Context, context.CancelFunc)
 }
 
 type DecoderFactory func(data io.Reader) *json.Decoder
-type ContextFactory func() context.Context
+type ContextFactory func(ctx context.Context) (context.Context, context.CancelFunc)
 
 type rpcHandlers struct {
 	handlers       map[string]HandlingInfo
@@ -260,16 +267,16 @@ func (r *rpcHandlers) GetDecoder(data io.Reader) *json.Decoder {
 	return r.getDecoder(data)
 }
 
-func (r *rpcHandlers) NewContext() context.Context {
-	return r.newContext()
+func (r *rpcHandlers) NewContext(ctx context.Context) (context.Context, context.CancelFunc) {
+	return r.newContext(ctx)
 }
 
 func dummyHeaders(ctx context.Context) http.Header {
 	return http.Header{}
 }
 
-func defaultCtxFactory() context.Context {
-	return context.Background()
+func defaultCtxFactory(ctx context.Context) (context.Context, context.CancelFunc) {
+	return ctx, func() {}
 }
 
 func NewDefaultRpcHandlers(handlers map[string]HandlingInfo) RpcHandlers {

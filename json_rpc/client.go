@@ -7,9 +7,10 @@ import (
 	"net/http"
 
 	"fmt"
+	"runtime/debug"
+
 	"github.com/coldze/primitives/custom_error"
 	"github.com/google/uuid"
-	"runtime/debug"
 )
 
 type ResponseResultFactory func() interface{}
@@ -43,15 +44,15 @@ func (c *client) Call(url string, method string, args RPCArguments, expectedResu
 		response = nil
 		customErr, ok := r.(custom_error.CustomError)
 		if ok {
-			resError = errorBuilder.NewErrorf(customErr, "Failed to make a call. Panic occurred.%v", stacktrace)
+			resError = errorBuilder.WrapErrorf(customErr, "Failed to make a call. Panic occurred.%v", stacktrace)
 			return
 		}
 		err, ok := r.(error)
 		if ok {
-			resError = errorBuilder.NewErrorf(customErr, "Failed to make a call. Panic occurred with error: %v.%v", err, stacktrace)
+			resError = errorBuilder.WrapErrorf(customErr, "Failed to make a call. Panic occurred with error: %v.%v", err, stacktrace)
 			return
 		}
-		resError = errorBuilder.NewErrorf(customErr, "Failed to make a call. Panic occurred with unknown error: %+v. Type: %T.%v", err, err, stacktrace)
+		resError = errorBuilder.WrapErrorf(customErr, "Failed to make a call. Panic occurred with unknown error: %+v. Type: %T.%v", err, err, stacktrace)
 	}()
 	request := UntypedRequest{
 		RequestBase{

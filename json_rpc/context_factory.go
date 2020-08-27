@@ -5,7 +5,7 @@ import (
 	"net/http"
 )
 
-type InitialContextFactory func() context.Context
+type InitialContextFactory func(ctx context.Context) (context.Context, context.CancelFunc)
 type ContextBuilder func(ctx context.Context, request *RequestBase, rawHttpRequest *http.Request) (context.Context, ServerError)
 
 func NewCompositeContextBuilder(builders []ContextBuilder) ContextBuilder {
