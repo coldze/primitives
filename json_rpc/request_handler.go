@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"runtime/debug"
+	"time"
 
 	"github.com/coldze/primitives/custom_error"
 	"github.com/coldze/primitives/logs"
@@ -283,8 +284,11 @@ func NewDefaultRpcHandlers(handlers map[string]HandlingInfo) RpcHandlers {
 	return NewCustomRpcHandlers(handlers, dummyHeaders, defaultCtxFactory, defaultDecoder)
 }
 
-func NewRpcHandlers(handlers map[string]HandlingInfo, defaultHeaders HeadersFromContext) RpcHandlers {
-	return NewCustomRpcHandlers(handlers, defaultHeaders, defaultCtxFactory, defaultDecoder)
+func NewRpcHandlers(handlers map[string]HandlingInfo, defaultHeaders HeadersFromContext, timeout time.Duration) RpcHandlers {
+	ctxFactory := func(ctx context.Context) (context.Context, context.CancelFunc) {
+		return context.WithTimeout(ctx, timeout)
+	}
+	return NewCustomRpcHandlers(handlers, defaultHeaders, ctxFactory, defaultDecoder)
 }
 
 func NewCustomRpcHandlers(handlers map[string]HandlingInfo, defaultHeaders HeadersFromContext, contextFactory ContextFactory, decoderFactory DecoderFactory) RpcHandlers {
